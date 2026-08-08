@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>파이터즈 아레나 - 대전 격투 게임</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, #241a3a, #0a0812 75%);
+    color: #f2eefb;
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: 3px;
+    background: linear-gradient(90deg, #ff5e5e, #ffb347, #ffe95e);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-align: center;
+  }
+  .stage {
+    position: relative;
+    border: 3px solid #4a3b6b;
+    border-radius: 10px;
+    box-shadow: 0 0 40px rgba(140, 100, 255, 0.2);
+    background: #0a0812;
+  }
+  canvas { display: block; border-radius: 6px; }
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: rgba(10, 8, 18, 0.92);
+    border-radius: 6px;
+  }
+  .screen.hidden { display: none; }
+  .pick-row { display: flex; gap: 40px; }
+  .pick-col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .pick-col h2 { margin: 0 0 4px; font-size: 15px; letter-spacing: 1px; color: #b6a6ff; }
+  .char-btn {
+    width: 130px;
+    padding: 12px 8px;
+    background: #201835;
+    border: 2px solid #4a3b6b;
+    border-radius: 8px;
+    color: #f2eefb;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .char-btn:hover { background: #2c2148; transform: translateY(-2px); }
+  .char-btn.selected { border-color: #ffb347; background: #3a2a5c; }
+  .swatch { width: 100%; height: 46px; border-radius: 6px; margin-bottom: 8px; }
+  .cpu-toggle { font-size: 13px; color: #cfc4ec; display: flex; align-items: center; gap: 8px; }
+  button.action {
+    padding: 10px 28px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(90deg, #ff5e5e, #ffb347);
+    color: #180f2a;
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button.action:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.action:hover:not(:disabled) { filter: brightness(1.08); }
+  .result-title { font-size: 30px; font-weight: bold; color: #ffe95e; }
+  .result-sub { font-size: 14px; color: #cfc4ec; }
+  .controls-note {
+    font-size: 12px;
+    color: #9a8fc0;
+    text-align: center;
+    line-height: 1.7;
+    max-width: 480px;
+  }
+  .controls-note b { color: #f2eefb; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FIGHTERS ARENA</h1>
+  <div class="stage" style="width:800px;height:400px;">
+    <canvas id="game" width="800" height="400"></canvas>
+
+    <div class="screen" id="selectScreen">
+      <div class="pick-row">
+        <div class="pick-col" id="p1Col">
+          <h2>PLAYER 1</h2>
+        </div>
+        <div class="pick-col" id="p2Col">
+          <h2>PLAYER 2</h2>
+        </div>
+      </div>
+      <label class="cpu-toggle"><input type="checkbox" id="cpuToggle"> Player 2를 컴퓨터(CPU)가 조작</label>
+      <button class="action" id="startBtn" disabled>대전 시작</button>
+      <div class="controls-note">
+        <b>P1</b> A/D 이동, W 점프, S 방어, F 펀치, G 킥 &nbsp;|&nbsp;
+        <b>P2</b> ←/→ 이동, ↑ 점프, ↓ 방어, K 펀치, L 킥
+      </div>
+    </div>
+
+    <div class="screen hidden" id="resultScreen">
+      <div class="result-title" id="resultTitle">K.O.</div>
+      <div class="result-sub" id="resultSub"></div>
+      <button class="action" id="restartBtn">다시 대전</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const GROUND_Y = 330;
+
+  const GRAVITY = 1600;
+  const JUMP_VELOCITY = -480;
+  const MOVE_SPEED = 220;
+  const PUNCH_RANGE = 78, PUNCH_DAMAGE = 6, PUNCH_DURATION = 250;
+  const KICK_RANGE = 100, KICK_DAMAGE = 12, KICK_DURATION = 420;
+  const HIT_STUN = 260;
+  const ROUND_TIME = 60;
+  const MIN_SEP = 55;
+  const SKIN = '#6b4226';
+  const SKIN_SHADE = '#4e2f1a';
+
+  // All three fighters share the same skin tone; outfit/hair marks each one's identity.
+  const CHARACTERS = {
+    ryu: {
+      name: '류',
+      swatch: 'linear-gradient(135deg,#f5f5f5,#cfcfcf)',
+      outfit: '#f2f2f2',
+      outfitShade: '#cfcfcf',
+      hair: '#161616',
+      accent: '#e21f1f',
+      extra: 'headband'
+    },
+    ken: {
+      name: '캔',
+      swatch: 'linear-gradient(135deg,#e6342d,#a3211c)',
+      outfit: '#e6342d',
+      outfitShade: '#a3211c',
+      hair: '#e8c547',
+      accent: '#ffffff',
+      extra: 'none'
+    },
+    chunli: {
+      name: '춘리',
+      swatch: 'linear-gradient(135deg,#2b6fe0,#173f8c)',
+      outfit: '#2b6fe0',
+      outfitShade: '#173f8c',
+      hair: '#161616',
+      accent: '#ffd700',
+      extra: 'buns'
+    }
+  };
+  const ORDER = ['ryu', 'ken', 'chunli'];
+
+  let picks = { p1: null, p2: null };
+  let cpuEnabled = false;
+  let players = null;
+  let timeLeft = ROUND_TIME;
+  let running = false;
+  let lastTime = 0;
+  let roundOver = false;
+
+  const keys = new Set();
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+    keys.add(e.code);
+  });
+  window.addEventListener('keyup', (e) => keys.delete(e.code));
+
+  // ---- Character select screen ----
+  function buildPickColumn(colId, playerKey) {
+    const col = document.getElementById(colId);
+    ORDER.forEach((key) => {
+      const c = CHARACTERS[key];
+      const btn = document.createElement('div');
+      btn.className = 'char-btn';
+      btn.innerHTML = `<div class="swatch" style="background:${c.swatch}"></div>${c.name}`;
+      btn.addEventListener('click', () => {
+        picks[playerKey] = key;
+        [...col.querySelectorAll('.char-btn')].forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        checkReady();
+      });
+      col.appendChild(btn);
+    });
+  }
+  buildPickColumn('p1Col', 'p1');
+  buildPickColumn('p2Col', 'p2');
+
+  const startBtn = document.getElementById('startBtn');
+  const cpuToggle = document.getElementById('cpuToggle');
+  cpuToggle.addEventListener('change', () => { cpuEnabled = cpuToggle.checked; });
+
+  function checkReady() {
+    startBtn.disabled = !(picks.p1 && picks.p2);
+  }
+
+  function makePlayer(charKey, x, facing, name) {
+    return {
+      key: charKey,
+      char: CHARACTERS[charKey],
+      name,
+      x, y: 0, vy: 0,
+      facing,
+      hp: 100,
+      state: 'idle', // idle, walk, jump, punch, kick, block, hit, ko
+      lockTimer: 0,
+      hitTimer: 0,
+      cooldown: 0
+    };
+  }
+
+  startBtn.addEventListener('click', () => {
+    players = {
+      p1: makePlayer(picks.p1, 220, 1, CHARACTERS[picks.p1].name),
+      p2: makePlayer(picks.p2, 580, -1, CHARACTERS[picks.p2].name)
+    };
+    timeLeft = ROUND_TIME;
+    roundOver = false;
+    document.getElementById('selectScreen').classList.add('hidden');
+    document.getElementById('resultScreen').classList.add('hidden');
+    running = true;
+    lastTime = 0;
+    requestAnimationFrame(loop);
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    document.getElementById('resultScreen').classList.add('hidden');
+    document.getElementById('selectScreen').classList.remove('hidden');
+    running = false;
+  });
+
+  // ---- Combat ----
+  function tryAttack(attacker, defender, type) {
+    if (attacker.cooldown > 0 || attacker.hitTimer > 0 || attacker.state === 'ko') return;
+    const duration = type === 'punch' ? PUNCH_DURATION : KICK_DURATION;
+    const range = type === 'punch' ? PUNCH_RANGE : KICK_RANGE;
+    const damage = type === 'punch' ? PUNCH_DAMAGE : KICK_DAMAGE;
+    attacker.state = type;
+    attacker.lockTimer = duration;
+    attacker.cooldown = duration;
+
+    const dist = Math.abs(attacker.x - defender.x);
+    if (dist <= range && defender.state !== 'ko') {
+      if (defender.state === 'block') {
+        defender.hp = Math.max(0, defender.hp - 1);
+      } else {
+        defender.hp = Math.max(0, defender.hp - damage);
+        defender.state = 'hit';
+        defender.hitTimer = HIT_STUN;
+        defender.x += (defender.x > attacker.x ? 1 : -1) * 10;
+      }
+      if (defender.hp <= 0) {
+        defender.state = 'ko';
+        endRound(attacker === players.p1 ? 'p1' : 'p2');
+      }
+    }
+  }
+
+  function updatePlayer(p, dt, input) {
+    if (p.state === 'ko') return;
+
+    if (p.hitTimer > 0) {
+      p.hitTimer -= dt;
+      if (p.hitTimer <= 0) { p.hitTimer = 0; p.state = 'idle'; }
+    }
+    if (p.cooldown > 0) p.cooldown -= dt;
+    if (p.lockTimer > 0) {
+      p.lockTimer -= dt;
+      if (p.lockTimer <= 0 && (p.state === 'punch' || p.state === 'kick')) p.state = 'idle';
+    }
+
+    const locked = p.hitTimer > 0 || p.state === 'punch' || p.state === 'kick';
+
+    if (!locked) {
+      if (input.block) {
+        p.state = 'block';
+      } else if (input.left || input.right) {
+        const dir = input.left ? -1 : 1;
+        p.x += dir * MOVE_SPEED * (dt / 1000);
+        p.state = p.y > 0 ? 'jump' : 'walk';
+      } else {
+        p.state = p.y > 0 ? 'jump' : 'idle';
+      }
+
+      if (input.jump && p.y === 0) {
+        p.vy = JUMP_VELOCITY;
+      }
+      if (input.punch) tryAttack(p, p.other, 'punch');
+      else if (input.kick) tryAttack(p, p.other, 'kick');
+    }
+
+    // gravity / vertical motion
+    if (p.y !== 0 || p.vy !== 0) {
+      p.vy += GRAVITY * (dt / 1000);
+      p.y += p.vy * (dt / 1000);
+      if (p.y > 0) { p.y = 0; p.vy = 0; if (p.state === 'jump') p.state = 'idle'; }
+    }
+
+    p.x = Math.max(40, Math.min(W - 40, p.x));
+  }
+
+  function resolveSeparation(a, b) {
+    const dist = b.x - a.x;
+    if (Math.abs(dist) < MIN_SEP) {
+      const push = (MIN_SEP - Math.abs(dist)) / 2;
+      const dir = dist >= 0 ? 1 : -1;
+      a.x -= dir * push;
+      b.x += dir * push;
+    }
+  }
+
+  function readInput(prefix) {
+    if (prefix === 'p1') {
+      return {
+        left: keys.has('KeyA'), right: keys.has('KeyD'),
+        jump: keys.has('KeyW'), block: keys.has('KeyS'),
+        punch: keys.has('KeyF'), kick: keys.has('KeyG')
+      };
+    }
+    return {
+      left: keys.has('ArrowLeft'), right: keys.has('ArrowRight'),
+      jump: keys.has('ArrowUp'), block: keys.has('ArrowDown'),
+      punch: keys.has('KeyK'), kick: keys.has('KeyL')
+    };
+  }
+
+  let cpuState = { nextDecision: 0, action: null };
+  function cpuInput(p, opponent, dt) {
+    cpuState.nextDecision -= dt;
+    if (cpuState.nextDecision <= 0) {
+      const dist = Math.abs(p.x - opponent.x);
+      cpuState.nextDecision = 150 + Math.random() * 200;
+      if (dist > KICK_RANGE + 20) {
+        cpuState.action = p.x < opponent.x ? 'right' : 'left';
+      } else if (dist > PUNCH_RANGE) {
+        cpuState.action = Math.random() < 0.5 ? (p.x < opponent.x ? 'right' : 'left') : 'kick';
+      } else {
+        const roll = Math.random();
+        cpuState.action = roll < 0.35 ? 'punch' : roll < 0.6 ? 'kick' : roll < 0.8 ? 'block' : 'jump';
+      }
+    }
+    return {
+      left: cpuState.action === 'left',
+      right: cpuState.action === 'right',
+      jump: cpuState.action === 'jump',
+      block: cpuState.action === 'block',
+      punch: cpuState.action === 'punch',
+      kick: cpuState.action === 'kick'
+    };
+  }
+
+  function endRound(winnerKey) {
+    roundOver = true;
+    running = false;
+    const winner = players[winnerKey];
+    showResult(`${winner.name} 승리!`, 'K.O.');
+  }
+
+  function showResult(sub, title) {
+    document.getElementById('resultTitle').textContent = title;
+    document.getElementById('resultSub').textContent = sub;
+    document.getElementById('resultScreen').classList.remove('hidden');
+  }
+
+  // ---- Rendering ----
+  function drawBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#2b1055');
+    g.addColorStop(0.55, '#5c2a5e');
+    g.addColorStop(1, '#ff9a56');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    for (let i = 0; i < 6; i++) {
+      ctx.fillRect(30 + i * 130, 40, 60, 220);
+    }
+
+    ctx.fillStyle = '#181022';
+    ctx.fillRect(0, GROUND_Y + 40, W, H - GROUND_Y - 40);
+    ctx.fillStyle = '#2a1c3a';
+    ctx.fillRect(0, GROUND_Y + 40, W, 6);
+  }
+
+  function drawFighter(p) {
+    const footY = GROUND_Y - p.y;
+    ctx.save();
+    ctx.translate(p.x, footY);
+    ctx.scale(p.facing, 1);
+
+    const c = p.char;
+    const crouch = p.state === 'block' ? 6 : 0;
+    const punching = p.state === 'punch';
+    const kicking = p.state === 'kick';
+    const hit = p.state === 'hit';
+    const ko = p.state === 'ko';
+
+    ctx.globalAlpha = ko ? 0.5 : 1;
+    if (ko) ctx.rotate(Math.PI / 2.2);
+
+    // back leg
+    ctx.fillStyle = c.outfitShade;
+    ctx.fillRect(-10, -46 + crouch, 12, 46 - crouch);
+    // front leg (kicking extends)
+    ctx.fillStyle = c.outfit;
+    if (kicking) {
+      ctx.fillRect(4, -60, 44, 12);
+    } else {
+      ctx.fillRect(2, -46 + crouch, 12, 46 - crouch);
+    }
+
+    // torso
+    ctx.fillStyle = c.outfit;
+    ctx.fillRect(-14, -86 + crouch, 28, 44);
+    ctx.fillStyle = c.outfitShade;
+    ctx.fillRect(-14, -86 + crouch, 28, 8);
+
+    // back arm
+    ctx.fillStyle = SKIN_SHADE;
+    ctx.fillRect(-16, -80 + crouch, 8, 30);
+    // front arm (punching extends)
+    ctx.fillStyle = SKIN;
+    if (punching) {
+      ctx.fillRect(10, -78 + crouch, 40, 10);
+    } else if (p.state === 'block') {
+      ctx.fillRect(6, -84, 10, 26);
+    } else {
+      ctx.fillRect(8, -80 + crouch, 8, 30);
+    }
+
+    // head
+    ctx.fillStyle = SKIN;
+    ctx.beginPath();
+    ctx.arc(0, -100 + crouch, 13, 0, Math.PI * 2);
+    ctx.fill();
+
+    // hair / headwear per character
+    ctx.fillStyle = c.hair;
+    if (c.extra === 'buns') {
+      ctx.beginPath();
+      ctx.arc(-9, -112 + crouch, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(9, -112 + crouch, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-11, -104 + crouch, 22, 6);
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, -108 + crouch, 13, Math.PI, 0);
+      ctx.fill();
+    }
+    if (c.extra === 'headband') {
+      ctx.fillStyle = c.accent;
+      ctx.fillRect(-13, -104 + crouch, 26, 6);
+      ctx.fillRect(10, -101 + crouch, 14, 4);
+    }
+
+    // hit flash
+    if (hit) {
+      ctx.fillStyle = 'rgba(255,60,60,0.35)';
+      ctx.beginPath();
+      ctx.arc(0, -100 + crouch, 16, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUD() {
+    drawBar(20, 20, players.p1, false);
+    drawBar(W - 220, 20, players.p2, true);
+
+    ctx.fillStyle = '#f2eefb';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(players.p1.name, 20, 56);
+    ctx.textAlign = 'right';
+    ctx.fillText(players.p2.name, W - 20, 56);
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillStyle = '#ffe95e';
+    ctx.fillText(Math.ceil(timeLeft), W / 2, 40);
+  }
+
+  function drawBar(x, y, p, flip) {
+    const width = 200, height = 16;
+    ctx.fillStyle = '#2a1c3a';
+    ctx.fillRect(x, y, width, height);
+    const pct = Math.max(0, p.hp) / 100;
+    ctx.fillStyle = pct > 0.5 ? '#5ee06b' : pct > 0.2 ? '#ffcc4d' : '#ff4d4d';
+    if (flip) {
+      ctx.fillRect(x + width * (1 - pct), y, width * pct, height);
+    } else {
+      ctx.fillRect(x, y, width * pct, height);
+    }
+    ctx.strokeStyle = '#4a3b6b';
+    ctx.strokeRect(x, y, width, height);
+  }
+
+  // ---- Main loop ----
+  function loop(time) {
+    if (!running) return;
+    if (!lastTime) lastTime = time;
+    const dt = time - lastTime;
+    lastTime = time;
+
+    if (!roundOver) {
+      timeLeft -= dt / 1000;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        const winnerKey = players.p1.hp === players.p2.hp ? null : (players.p1.hp > players.p2.hp ? 'p1' : 'p2');
+        roundOver = true;
+        running = false;
+        if (winnerKey) {
+          showResult('시간 종료', `${players[winnerKey].name} 승리!`);
+        } else {
+          showResult('시간 종료', '무승부');
+        }
+      } else {
+        players.p1.other = players.p2;
+        players.p2.other = players.p1;
+        const input1 = readInput('p1');
+        const input2 = cpuEnabled ? cpuInput(players.p2, players.p1, dt) : readInput('p2');
+        updatePlayer(players.p1, dt, input1);
+        updatePlayer(players.p2, dt, input2);
+        resolveSeparation(players.p1, players.p2);
+        players.p1.facing = players.p2.x >= players.p1.x ? 1 : -1;
+        players.p2.facing = players.p1.x >= players.p2.x ? 1 : -1;
+      }
+    }
+
+    drawBackground();
+    drawFighter(players.p1);
+    drawFighter(players.p2);
+    drawHUD();
+
+    requestAnimationFrame(loop);
+  }
+
+  drawBackground();
+})();
+</script>
+</body>
+</html>
