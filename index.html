@@ -392,17 +392,6 @@
       }
     }
 
-    // ghost piece
-    let ghostY = current.y;
-    while (!collides(current, 0, ghostY - current.y + 1)) ghostY++;
-    ctx.globalAlpha = 0.25;
-    for (const [cx, cy] of SHAPES[current.type].cells[current.rotation]) {
-      const gx = current.x + cx;
-      const gy = ghostY + cy;
-      if (gy >= 0) drawCell(ctx, gx, gy, current.color, CELL);
-    }
-    ctx.globalAlpha = 1;
-
     for (const [x, y] of pieceCells(current)) {
       if (y >= 0) drawCell(ctx, x, y, current.color, CELL);
     }
