@@ -75,6 +75,7 @@
     box-shadow: inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 0 2px #000;
   }
   .stage { position: relative; width: 960px; height: 480px; }
+  #game { width: 960px; height: 480px; }
   canvas { display: block; border-radius: 4px; }
   .screen {
     position: absolute;
@@ -159,7 +160,7 @@
 
   <div class="screen-frame">
     <div class="stage">
-      <canvas id="game" width="960" height="480"></canvas>
+      <canvas id="game" width="1920" height="960"></canvas>
 
       <div class="screen" id="selectScreen">
         <div class="pick-row">
@@ -194,7 +195,12 @@
 (() => {
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  // The canvas backing buffer is rendered at 2x (1920x960) for crisper, higher
+  // pixel-count character art; all gameplay/drawing math below still works in
+  // the original 960x480 logical space via this one-time base scale.
+  const RENDER_SCALE = 2;
+  const W = canvas.width / RENDER_SCALE, H = canvas.height / RENDER_SCALE;
+  ctx.scale(RENDER_SCALE, RENDER_SCALE);
   const GROUND_Y = 400;
 
   const GRAVITY = 2000;
@@ -231,6 +237,7 @@
     }
   };
   const ORDER = ['ryu', 'ken', 'chunli'];
+  const PREVIEW_W = 100, PREVIEW_H = 120;
 
   let picks = { p1: null, p2: null };
   let cpuEnabled = false;
@@ -278,6 +285,22 @@
     g.arc(s.x1, s.y1, width / 2, 0, Math.PI * 2);
     g.fillStyle = color;
     g.fill();
+
+    // subtle muscle-separation line down bare skin segments (arms/legs)
+    if (color === SKIN) {
+      const mx = nx * 0.35, my = ny * 0.35;
+      g.strokeStyle = 'rgba(0,0,0,0.12)';
+      g.lineWidth = Math.max(1, width * 0.08);
+      g.beginPath();
+      g.moveTo(s.x1 + mx, s.y1 + my);
+      g.lineTo(s.x2 + mx, s.y2 + my);
+      g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.1)';
+      g.beginPath();
+      g.moveTo(s.x1 - mx, s.y1 - my);
+      g.lineTo(s.x2 - mx, s.y2 - my);
+      g.stroke();
+    }
   }
 
   const IDLE = {
@@ -341,7 +364,7 @@
     drawLimb(g, backUpper, 14, SKIN_HI, SKIN, SKIN_LO);
     const backFore = seg(backUpper.x2, backUpper.y2, pose.backForearm[0], pose.backForearm[1]);
     drawLimb(g, backFore, 12, SKIN_HI, SKIN, SKIN_LO);
-    drawFist(g, backFore.x2, backFore.y2);
+    drawFist(g, backFore.x2, backFore.y2, false, c);
 
     // torso (tapered quad, gi/dress colored)
     drawTorso(g, hipY, c, pose.hip);
@@ -366,7 +389,7 @@
     drawLimb(g, frontUpper, 15, SKIN_HI, SKIN, SKIN_LO);
     const frontFore = seg(frontUpper.x2, frontUpper.y2, pose.frontForearm[0], pose.frontForearm[1]);
     drawLimb(g, frontFore, 13, SKIN_HI, SKIN, SKIN_LO);
-    drawFist(g, frontFore.x2, frontFore.y2, state === 'punch');
+    drawFist(g, frontFore.x2, frontFore.y2, state === 'punch', c);
 
     // hit flash overlay
     if (state === 'hit') {
@@ -382,6 +405,10 @@
   }
 
   function drawFoot(g, x, y, c) {
+    // ankle cuff: bare cotton band for the gi pants, a slim boot collar for the dress
+    g.fillStyle = c.build === 'dress' ? '#0d0d0d' : '#ffffff';
+    g.fillRect(x - 6, y - 5, 16, 6);
+
     g.fillStyle = c.build === 'dress' ? '#161616' : c.outfitLo;
     g.beginPath();
     g.moveTo(x - 8, y);
@@ -390,10 +417,26 @@
     g.lineTo(x - 8, y + 8);
     g.closePath();
     g.fill();
+
+    // sole
+    g.fillStyle = '#000000';
+    g.fillRect(x - 8, y + 7, 20, 2.4);
+
+    if (c.build === 'dress') {
+      // ankle strap detail on the boot
+      g.strokeStyle = c.accent;
+      g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(x - 7, y + 3); g.lineTo(x + 11, y + 3); g.stroke();
+    } else {
+      // toe seam on the gi shoe
+      g.strokeStyle = 'rgba(0,0,0,0.25)';
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x + 12, y + 1); g.lineTo(x + 4, y + 7); g.stroke();
+    }
   }
 
-  function drawFist(g, x, y, extended) {
-    const r = extended ? 8 : 7;
+  function drawFist(g, x, y, extended, c) {
+    const r = extended ? 9 : 8;
     const grad = g.createRadialGradient(x - 2, y - 2, 1, x, y, r);
     grad.addColorStop(0, SKIN_HI);
     grad.addColorStop(1, SKIN_LO);
@@ -401,11 +444,30 @@
     g.arc(x, y, r, 0, Math.PI * 2);
     g.fillStyle = grad;
     g.fill();
-    g.strokeStyle = 'rgba(255,255,255,0.55)';
+
+    // knuckle ridges
+    g.strokeStyle = 'rgba(0,0,0,0.3)';
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x - r * 0.55, y - r * 0.25); g.lineTo(x + r * 0.55, y - r * 0.25); g.stroke();
+    g.beginPath(); g.moveTo(x - r * 0.5, y + r * 0.15); g.lineTo(x + r * 0.5, y + r * 0.15); g.stroke();
+
+    g.strokeStyle = 'rgba(255,255,255,0.5)';
     g.lineWidth = 2;
     g.beginPath();
     g.arc(x, y, r + 2, -0.4, 0.9);
     g.stroke();
+
+    // wrist accessory: tape wrap for gi fighters, a bangle for the dress
+    if (c && c.build === 'gi') {
+      g.strokeStyle = 'rgba(255,255,255,0.85)';
+      g.lineWidth = 2.2;
+      g.beginPath(); g.arc(x, y, r + 2.5, 1.3, 2.6); g.stroke();
+      g.beginPath(); g.arc(x, y, r + 4, 1.4, 2.5); g.stroke();
+    } else if (c && c.build === 'dress') {
+      g.strokeStyle = c.accent;
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(x, y, r + 2, 0, Math.PI * 2); g.stroke();
+    }
   }
 
   function drawTorso(g, hipY, c, hipBend) {
@@ -449,6 +511,18 @@
       g.fillRect(-waistW - 2, waistY - 8, waistW * 2 + 4, 8);
       g.fillStyle = c.accent;
       g.fillRect(-4, waistY - 8, 8, 8);
+      // belt knot tails
+      g.fillStyle = '#111111';
+      g.beginPath(); g.moveTo(-3, waistY); g.lineTo(-7, waistY + 12); g.lineTo(-1, waistY + 6); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(3, waistY); g.lineTo(7, waistY + 13); g.lineTo(1, waistY + 6); g.closePath(); g.fill();
+
+      // fabric fold lines across the gi jacket
+      g.strokeStyle = 'rgba(0,0,0,0.16)';
+      g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(-shoulderW + 6, top + 20); g.quadraticCurveTo(-waistW + 2, top + 34, -waistW + 6, waistY - 2); g.stroke();
+      g.beginPath(); g.moveTo(shoulderW - 6, top + 20); g.quadraticCurveTo(waistW - 2, top + 34, waistW - 6, waistY - 2); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.14)';
+      g.beginPath(); g.moveTo(-shoulderW + 10, top + 16); g.lineTo(-waistW + 8, waistY - 4); g.stroke();
     } else {
       // chun-li mandarin collar + frog buttons
       g.fillStyle = c.trim;
@@ -465,6 +539,15 @@
         g.fillStyle = c.trim;
         g.fill();
       }
+      // gold side-seam piping
+      g.strokeStyle = c.trim;
+      g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(-shoulderW + 5, top + 10); g.quadraticCurveTo(-waistW - 1, top + 40, -waistW + 3, waistY); g.stroke();
+      g.beginPath(); g.moveTo(shoulderW - 5, top + 10); g.quadraticCurveTo(waistW + 1, top + 40, waistW - 3, waistY); g.stroke();
+      // soft fabric shading near the slit
+      g.strokeStyle = 'rgba(0,0,0,0.18)';
+      g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(4, top + 26); g.quadraticCurveTo(10, top + 40, 8, waistY - 2); g.stroke();
     }
     g.restore();
   }
@@ -484,6 +567,18 @@
     g.fillStyle = grad;
     g.fill();
 
+    // ear (trailing side)
+    g.fillStyle = SKIN_LO;
+    g.beginPath(); g.ellipse(-14, cy + 1, 2.6, 4, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,0.25)';
+    g.lineWidth = 1;
+    g.beginPath(); g.arc(-14, cy + 1, 1.6, 0.3, 2.8); g.stroke();
+
+    // jaw / cheek shading for definition
+    g.strokeStyle = 'rgba(0,0,0,0.14)';
+    g.lineWidth = 1.4;
+    g.beginPath(); g.arc(0, cy, 13.5, 0.55, 1.35); g.stroke();
+
     // face features
     g.fillStyle = '#1a1210';
     g.beginPath(); g.ellipse(6, cy - 1, 2.6, 1.8, 0, 0, Math.PI * 2); g.fill();
@@ -493,6 +588,10 @@
     g.beginPath(); g.moveTo(2, cy - 6); g.lineTo(10, cy - 7); g.stroke();
     g.beginPath(); g.moveTo(-8, cy - 6); g.lineTo(-1, cy - 6.5); g.stroke();
     g.beginPath(); g.moveTo(2, cy + 8); g.lineTo(9, cy + 7); g.stroke();
+    // nose bridge
+    g.strokeStyle = 'rgba(0,0,0,0.3)';
+    g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(9, cy - 4); g.quadraticCurveTo(12, cy + 1, 9, cy + 3); g.stroke();
 
     // hair / headwear
     g.fillStyle = c.hair;
@@ -544,7 +643,8 @@
       const btn = document.createElement('div');
       btn.className = 'char-btn';
       const mini = document.createElement('canvas');
-      mini.width = 100; mini.height = 120;
+      mini.width = PREVIEW_W * RENDER_SCALE; mini.height = PREVIEW_H * RENDER_SCALE;
+      mini.style.width = PREVIEW_W + 'px'; mini.style.height = PREVIEW_H + 'px';
       btn.appendChild(mini);
       const label = document.createElement('div');
       label.textContent = c.name;
@@ -566,8 +666,9 @@
   function drawPreviews(t) {
     previewCanvases.forEach(({ canvas: mini, key }) => {
       const g = mini.getContext('2d');
-      g.clearRect(0, 0, mini.width, mini.height);
-      renderFighter(g, { x: mini.width / 2, y: mini.height - 6, facing: 1, char: CHARACTERS[key], state: 'idle', animT: t, scale: 0.46 });
+      g.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
+      g.clearRect(0, 0, PREVIEW_W, PREVIEW_H);
+      renderFighter(g, { x: PREVIEW_W / 2, y: PREVIEW_H - 6, facing: 1, char: CHARACTERS[key], state: 'idle', animT: t, scale: 0.46 });
     });
   }
 
