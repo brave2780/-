@@ -576,17 +576,18 @@
 
   function checkReady() { startBtn.disabled = !(picks.p1 && picks.p2); }
 
-  function makePlayer(charKey, x, facing, name) {
+  function makePlayer(charKey, x, facing, name, damageMult) {
     return {
       key: charKey, char: CHARACTERS[charKey], name,
       x, y: 0, vy: 0, facing, hp: 100,
-      state: 'idle', lockTimer: 0, hitTimer: 0, cooldown: 0, animT: Math.random() * 1000
+      state: 'idle', lockTimer: 0, hitTimer: 0, cooldown: 0, animT: Math.random() * 1000,
+      damageMult: damageMult || 1
     };
   }
 
   startBtn.addEventListener('click', () => {
     players = {
-      p1: makePlayer(picks.p1, 300, 1, CHARACTERS[picks.p1].name),
+      p1: makePlayer(picks.p1, 300, 1, CHARACTERS[picks.p1].name, 2),
       p2: makePlayer(picks.p2, 660, -1, CHARACTERS[picks.p2].name)
     };
     timeLeft = ROUND_TIME;
@@ -625,7 +626,7 @@
     if (attacker.cooldown > 0 || attacker.hitTimer > 0 || attacker.state === 'ko') return;
     const duration = type === 'punch' ? PUNCH_DURATION : KICK_DURATION;
     const range = type === 'punch' ? PUNCH_RANGE : KICK_RANGE;
-    const damage = type === 'punch' ? PUNCH_DAMAGE : KICK_DAMAGE;
+    const damage = (type === 'punch' ? PUNCH_DAMAGE : KICK_DAMAGE) * attacker.damageMult;
     attacker.state = type;
     attacker.lockTimer = duration;
     attacker.cooldown = duration;
