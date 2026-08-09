@@ -39,6 +39,13 @@
     margin-bottom: 20px;
   }
   .banner b { color: #5a3800; }
+  .banner + .banner { margin-top: -12px; }
+  .banner.info {
+    background: #eaf0fe;
+    border-color: #b9cdf6;
+    color: #1c3a80;
+  }
+  .banner.info b { color: #12275a; }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -55,6 +62,7 @@
     align-items: center;
     gap: 6px;
   }
+  .card h2 .desc { font-size: 12px; font-weight: 400; color: var(--sub); }
   .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -64,7 +72,7 @@
   .field { display: flex; flex-direction: column; gap: 5px; }
   .field label { font-size: 13px; font-weight: 600; color: var(--text); }
   .field .hint { font-size: 12px; color: var(--sub); min-height: 14px; }
-  input[type="number"], select, textarea {
+  input[type="number"], input[type="date"], select, textarea {
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 9px 10px;
@@ -73,7 +81,7 @@
     background: #fbfcfe;
     color: var(--text);
   }
-  input[type="number"]:focus, select:focus, textarea:focus {
+  input[type="number"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
     background: #fff;
@@ -88,8 +96,9 @@
     border: 1px solid var(--border);
     border-radius: 8px;
   }
-  .checkrow input { width: 16px; height: 16px; }
+  .checkrow input[type="checkbox"] { width: 16px; height: 16px; flex: none; }
   .checkrow .note { color: var(--sub); font-size: 12px; margin-left: auto; }
+  .subfield { margin-top: 8px; padding-left: 24px; }
   .btn {
     width: 100%;
     padding: 13px;
@@ -130,7 +139,7 @@
   }
   @media (max-width: 700px) { .settings-grid { grid-template-columns: 1fr 1fr; } }
   .settings-grid .field label { font-size: 12px; font-weight: 500; color: var(--sub); }
-  textarea#bracketJson { width: 100%; min-height: 130px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12.5px; resize: vertical; }
+  textarea#bracketJson, textarea#scheduleJson { width: 100%; min-height: 130px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12.5px; resize: vertical; }
 
   .result-hero {
     background: var(--accent-soft);
@@ -167,6 +176,7 @@
     border-radius: 8px;
     padding: 10px 12px;
   }
+  .note-box.good { color: var(--good); background: #eafaf3; border-color: #a6e6c8; }
   footer {
     font-size: 11.5px;
     color: var(--sub);
@@ -178,12 +188,15 @@
 <body>
 <div class="wrap">
   <h1>🏠 2026 부동산 양도소득세 계산기</h1>
-  <p class="lead">아파트 매매 시 예상 양도소득세를 모의 계산합니다.</p>
+  <p class="lead">아파트 매매 시 예상 양도소득세를 모의 계산합니다. (2026.8 발표 '실거주 중심' 세제개편안 반영)</p>
 
   <div class="banner">
-    <b>⚠️ 안내</b> — 2026년 부동산 세제개편의 최종 확정 세율·공제 기준은 시점에 따라 달라질 수 있습니다.
-    이 계산기는 <b>2025년 기준 현행 양도소득세 법령 구조</b>를 기본값으로 탑재했으며, 하단 <b>"세율·공제 기준 설정"</b>에서
-    2026년 확정 개편안에 맞춰 숫자를 직접 수정할 수 있습니다. 실제 신고 전 반드시 세무사 상담 또는 국세청 홈택스에서 재확인하세요.
+    <b>⚠️ 안내</b> — 본 계산기는 2026년 8월 초 발표된 정부 세제개편안(장특공제 거주·보유 분리, 다주택 중과 한시 완화, 실거주 1주택 기본공제 확대 등)의
+    <b>발표 시점 기준 내용</b>을 반영했습니다. 해당 개편안은 향후 국회 법안 통과 과정에서 수정될 수 있으므로, 하단 <b>"세율·공제 기준 설정"</b>에서
+    최종 확정 수치로 직접 조정할 수 있습니다. 실제 신고 전 반드시 세무사 상담 또는 국세청 홈택스에서 재확인하세요.
+  </div>
+  <div class="banner info">
+    <b>ℹ️ 참고</b> — 종합부동산세(종부세)는 매년 부과되는 별도의 보유세로, 이 계산기(매매 기반 양도소득세)와는 계산 구조가 달라 이번 업데이트에는 포함하지 않았습니다. 필요하시면 별도 종부세 계산기로 만들어 드릴 수 있습니다.
   </div>
 
   <div class="card">
@@ -204,7 +217,16 @@
         <input type="number" id="expense" min="0" step="100000" value="0">
         <div class="hint">기본값 0원. 아는 범위 내에서만 입력해도 됩니다.</div>
       </div>
-      <div class="field"></div>
+      <div class="field">
+        <label for="saleYear">매도(양도) 예정 연도</label>
+        <select id="saleYear">
+          <option value="2026">2026년</option>
+          <option value="2027">2027년</option>
+          <option value="2028">2028년</option>
+          <option value="2029">2029년 이후</option>
+        </select>
+        <div class="hint">장특공제율·다주택 중과율이 연도별로 달라집니다</div>
+      </div>
       <div class="field">
         <label for="holdYears">보유기간 (년)</label>
         <input type="number" id="holdYears" min="0" step="0.5" placeholder="예: 6">
@@ -238,10 +260,30 @@
         </select>
       </div>
       <div class="checkrow">
-        <input type="checkbox" id="applySurcharge">
-        <label for="applySurcharge">다주택자 중과세율 적용</label>
-        <span class="note">2026 개편 확정 시 확인</span>
+        <input type="checkbox" id="excludeSurcharge">
+        <label for="excludeSurcharge">다주택 중과 제외 (특례주택 등 사유)</label>
+        <span class="note">조건 충족 시 자동 적용</span>
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>③ 특례 · 감면 <span class="desc">해당 시에만 체크</span></h2>
+    <div class="grid">
+      <div class="checkrow">
+        <input type="checkbox" id="tempTwoHouse">
+        <label for="tempTwoHouse">일시적 2주택 특례 적용 (처분기한 내 종전주택 매도)</label>
+      </div>
+      <div class="field">
+        <label for="newHouseAcqDate">신규주택 취득일</label>
+        <input type="date" id="newHouseAcqDate">
+        <div class="hint" id="tempTwoHouseHint">2026.8.4 이후 취득 시 처분기한 3년→2년 단축</div>
+      </div>
+      <div class="checkrow">
+        <input type="checkbox" id="elderlyRelief">
+        <label for="elderlyRelief">만 65세 이상, 수도권 1주택 처분 후 비수도권 이주</label>
+      </div>
+      <div class="field"></div>
     </div>
   </div>
 
@@ -256,6 +298,7 @@
     </div>
     <table class="breakdown" id="breakdownTable"></table>
     <div class="note-box" id="noteBox" style="display:none;"></div>
+    <div class="note-box good" id="deadlineNoteBox" style="display:none;"></div>
   </div>
 
   <div class="card">
@@ -263,8 +306,20 @@
       <summary>세율·공제 기준 설정 (2026년 개편안 반영 시 수정)</summary>
       <div class="settings-grid">
         <div class="field">
-          <label for="basicDeduction">기본공제 (원/년)</label>
+          <label for="basicDeduction">기본공제 - 일반 (원/년)</label>
           <input type="number" id="basicDeduction" value="2500000">
+        </div>
+        <div class="field">
+          <label for="expandedBasicDeduction">기본공제 - 실거주 10년↑ 1주택 (원/년)</label>
+          <input type="number" id="expandedBasicDeduction" value="25000000">
+        </div>
+        <div class="field">
+          <label for="expandedResideYearsReq">확대공제 요건 - 최소 거주기간 (년)</label>
+          <input type="number" id="expandedResideYearsReq" value="10">
+        </div>
+        <div class="field">
+          <label for="expandedMaxSellPrice">확대공제 요건 - 양도가액 상한 (원)</label>
+          <input type="number" id="expandedMaxSellPrice" value="3000000000">
         </div>
         <div class="field">
           <label for="nonTaxThreshold">1세대1주택 비과세 기준금액 (원)</label>
@@ -279,28 +334,16 @@
           <input type="number" id="shortTerm1to2" value="60">
         </div>
         <div class="field">
-          <label for="oneHouseHoldRate">1주택자 보유기간공제 (%/년, 최대40%)</label>
-          <input type="number" id="oneHouseHoldRate" value="4">
-        </div>
-        <div class="field">
-          <label for="oneHouseResideRate">1주택자 거주기간공제 (%/년, 최대40%)</label>
-          <input type="number" id="oneHouseResideRate" value="4">
-        </div>
-        <div class="field">
-          <label for="generalLTRate">일반 장기보유특별공제 (%/년, 최대30%)</label>
+          <label for="generalLTRate">일반(다주택) 장특공제 (%/년, 최대30%)</label>
           <input type="number" id="generalLTRate" value="2">
-        </div>
-        <div class="field">
-          <label for="surcharge2House">다주택 중과 가산율 - 2주택 (%p)</label>
-          <input type="number" id="surcharge2House" value="20">
-        </div>
-        <div class="field">
-          <label for="surcharge3House">다주택 중과 가산율 - 3주택이상 (%p)</label>
-          <input type="number" id="surcharge3House" value="30">
         </div>
         <div class="field">
           <label for="localTaxRate">지방소득세율 (산출세액 대비, %)</label>
           <input type="number" id="localTaxRate" value="10">
+        </div>
+        <div class="field">
+          <label for="tempTwoHouseCutoff">일시적2주택 기한단축 기준일</label>
+          <input type="date" id="tempTwoHouseCutoff" value="2026-08-04">
         </div>
       </div>
       <div class="field" style="margin-top:12px;">
@@ -315,6 +358,39 @@
   { "limit": 1000000000,    "rate": 0.42, "deduction": 35940000 },
   { "limit": null,          "rate": 0.45, "deduction": 65940000 }
 ]</textarea>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label for="scheduleJson">연도별 정책 스케줄 (JSON) — 2026.8 개편안 발표 내용</label>
+        <textarea id="scheduleJson">{
+  "2026": {
+    "holdRate": 0.04, "resideRate": 0.04,
+    "deductionCap": null,
+    "surcharge2": 0.00, "surcharge3": 0.00,
+    "elderlyReliefRate": null, "elderlyReliefCap": null,
+    "note": "기존(~2027년) 장특공제 유지, 다주택 중과 유예 지속"
+  },
+  "2027": {
+    "holdRate": 0.04, "resideRate": 0.04,
+    "deductionCap": null,
+    "surcharge2": 0.05, "surcharge3": 0.10,
+    "elderlyReliefRate": 0.50, "elderlyReliefCap": 500000000,
+    "note": "다주택 중과 한시 완화 1단계, 고령자 지방이주 감면 50%(최대5억)"
+  },
+  "2028": {
+    "holdRate": 0.02, "resideRate": 0.06,
+    "deductionCap": 2000000000,
+    "surcharge2": 0.10, "surcharge3": 0.15,
+    "elderlyReliefRate": 0.30, "elderlyReliefCap": 300000000,
+    "note": "장특공제 거주 6%+보유 2%, 초고가주택 공제한도 20억, 고령자 감면 30%(최대3억)"
+  },
+  "2029": {
+    "holdRate": 0.00, "resideRate": 0.08,
+    "deductionCap": 1000000000,
+    "surcharge2": 0.20, "surcharge3": 0.30,
+    "elderlyReliefRate": null, "elderlyReliefCap": null,
+    "note": "보유공제 폐지, 거주 공제 연8%만 적용, 공제한도 10억, 다주택 중과 원상복귀"
+  }
+}</textarea>
       </div>
     </details>
   </div>
@@ -352,36 +428,57 @@
   $('buyPrice').addEventListener('input', () => updatePriceHint('buyPrice', 'buyPriceHint'));
   $('sellPrice').addEventListener('input', () => updatePriceHint('sellPrice', 'sellPriceHint'));
 
+  const DEFAULT_BRACKETS = [
+    { limit: 14000000, rate: 0.06, deduction: 0 },
+    { limit: 50000000, rate: 0.15, deduction: 1260000 },
+    { limit: 88000000, rate: 0.24, deduction: 5760000 },
+    { limit: 150000000, rate: 0.35, deduction: 15440000 },
+    { limit: 300000000, rate: 0.38, deduction: 19940000 },
+    { limit: 500000000, rate: 0.40, deduction: 25940000 },
+    { limit: 1000000000, rate: 0.42, deduction: 35940000 },
+    { limit: null, rate: 0.45, deduction: 65940000 }
+  ];
+
+  const DEFAULT_SCHEDULE = {
+    2026: { holdRate: 0.04, resideRate: 0.04, deductionCap: null, surcharge2: 0.00, surcharge3: 0.00, elderlyReliefRate: null, elderlyReliefCap: null },
+    2027: { holdRate: 0.04, resideRate: 0.04, deductionCap: null, surcharge2: 0.05, surcharge3: 0.10, elderlyReliefRate: 0.50, elderlyReliefCap: 500000000 },
+    2028: { holdRate: 0.02, resideRate: 0.06, deductionCap: 2000000000, surcharge2: 0.10, surcharge3: 0.15, elderlyReliefRate: 0.30, elderlyReliefCap: 300000000 },
+    2029: { holdRate: 0.00, resideRate: 0.08, deductionCap: 1000000000, surcharge2: 0.20, surcharge3: 0.30, elderlyReliefRate: null, elderlyReliefCap: null }
+  };
+
   function getSettings() {
     let brackets;
     try {
       brackets = JSON.parse($('bracketJson').value);
     } catch (e) {
       alert('누진세율표 JSON 형식이 올바르지 않습니다. 기본값으로 계산합니다.');
-      brackets = [
-        { limit: 14000000, rate: 0.06, deduction: 0 },
-        { limit: 50000000, rate: 0.15, deduction: 1260000 },
-        { limit: 88000000, rate: 0.24, deduction: 5760000 },
-        { limit: 150000000, rate: 0.35, deduction: 15440000 },
-        { limit: 300000000, rate: 0.38, deduction: 19940000 },
-        { limit: 500000000, rate: 0.40, deduction: 25940000 },
-        { limit: 1000000000, rate: 0.42, deduction: 35940000 },
-        { limit: null, rate: 0.45, deduction: 65940000 }
-      ];
+      brackets = DEFAULT_BRACKETS;
+    }
+    let schedule;
+    try {
+      schedule = JSON.parse($('scheduleJson').value);
+    } catch (e) {
+      alert('연도별 정책 스케줄 JSON 형식이 올바르지 않습니다. 기본값으로 계산합니다.');
+      schedule = DEFAULT_SCHEDULE;
     }
     return {
       basicDeduction: Number($('basicDeduction').value || 0),
+      expandedBasicDeduction: Number($('expandedBasicDeduction').value || 0),
+      expandedResideYearsReq: Number($('expandedResideYearsReq').value || 0),
+      expandedMaxSellPrice: Number($('expandedMaxSellPrice').value || 0),
       nonTaxThreshold: Number($('nonTaxThreshold').value || 0),
       shortTermUnder1: Number($('shortTermUnder1').value || 0) / 100,
       shortTerm1to2: Number($('shortTerm1to2').value || 0) / 100,
-      oneHouseHoldRate: Number($('oneHouseHoldRate').value || 0) / 100,
-      oneHouseResideRate: Number($('oneHouseResideRate').value || 0) / 100,
       generalLTRate: Number($('generalLTRate').value || 0) / 100,
-      surcharge2House: Number($('surcharge2House').value || 0) / 100,
-      surcharge3House: Number($('surcharge3House').value || 0) / 100,
       localTaxRate: Number($('localTaxRate').value || 0) / 100,
-      brackets
+      tempTwoHouseCutoff: $('tempTwoHouseCutoff').value || '2026-08-04',
+      brackets,
+      schedule
     };
+  }
+
+  function getYearConfig(schedule, year) {
+    return schedule[String(year)] || schedule[Math.max(...Object.keys(schedule).map(Number))];
   }
 
   function findBracket(base, brackets) {
@@ -395,16 +492,38 @@
     return `<tr><td>${label}${tag ? `<span class="tag">${tag}</span>` : ''}</td><td>${value}</td></tr>`;
   }
 
+  function updateDeadlineHint() {
+    const checked = $('tempTwoHouse').checked;
+    const dateVal = $('newHouseAcqDate').value;
+    const cutoff = $('tempTwoHouseCutoff') ? ($('tempTwoHouseCutoff').value || '2026-08-04') : '2026-08-04';
+    if (!checked || !dateVal) {
+      $('tempTwoHouseHint').textContent = '2026.8.4 이후 취득 시 처분기한 3년→2년 단축';
+      return;
+    }
+    const acq = new Date(dateVal);
+    const cut = new Date(cutoff);
+    const years = acq >= cut ? 2 : 3;
+    const deadline = new Date(acq);
+    deadline.setFullYear(deadline.getFullYear() + years);
+    const deadlineStr = deadline.toISOString().slice(0, 10);
+    $('tempTwoHouseHint').textContent = `처분기한: ${deadlineStr}까지 (취득일 기준 ${years}년, ${acq >= cut ? '기준일 이후 취득' : '기준일 이전 취득'})`;
+  }
+  $('tempTwoHouse').addEventListener('change', updateDeadlineHint);
+  $('newHouseAcqDate').addEventListener('change', updateDeadlineHint);
+
   function calculate() {
     const buyPrice = Number($('buyPrice').value || 0);
     const sellPrice = Number($('sellPrice').value || 0);
     const expense = Number($('expense').value || 0);
     const holdYears = Number($('holdYears').value || 0);
     const resideYears = Number($('resideYears').value || 0);
+    const saleYear = Number($('saleYear').value || 2026);
     let isOneHouse = $('isOneHouse').checked;
     const isAdjustedArea = $('isAdjustedArea').checked;
     const numHouses = Number($('numHouses').value || 1);
-    const applySurcharge = $('applySurcharge').checked;
+    const excludeSurcharge = $('excludeSurcharge').checked;
+    const tempTwoHouse = $('tempTwoHouse').checked;
+    const elderlyReliefChecked = $('elderlyRelief').checked;
 
     if (!buyPrice || !sellPrice) {
       alert('매입가와 매도가를 입력해 주세요.');
@@ -412,15 +531,28 @@
     }
 
     const s = getSettings();
+    const cfg = getYearConfig(s.schedule, saleYear);
     const resultCard = $('resultCard');
     const breakdown = [];
     resultCard.style.display = 'block';
+    $('deadlineNoteBox').style.display = 'none';
+
+    // 일시적 2주택 특례: 비과세/공제 판정에서는 1주택으로, 다주택 중과 판정에서는 주택수 1로 취급
+    if (tempTwoHouse) isOneHouse = true;
+    const effectiveNumHouses = tempTwoHouse ? 1 : numHouses;
 
     const totalGain = sellPrice - buyPrice - expense;
     breakdown.push(row('양도가액', formatWon(sellPrice)));
     breakdown.push(row('취득가액', formatWon(buyPrice)));
     if (expense) breakdown.push(row('필요경비', formatWon(expense)));
     breakdown.push(row('양도차익', formatWon(totalGain)));
+
+    if (tempTwoHouse && $('newHouseAcqDate').value) {
+      updateDeadlineHint();
+      const box = $('deadlineNoteBox');
+      box.style.display = 'block';
+      box.textContent = '일시적 2주택 특례 적용 중 — ' + $('tempTwoHouseHint').textContent + '. 기한 내 종전주택을 처분하지 못하면 특례가 적용되지 않습니다.';
+    }
 
     if (totalGain <= 0) {
       renderZero('양도차손이 발생하여 납부할 양도소득세가 없습니다.', breakdown);
@@ -429,6 +561,7 @@
 
     let taxableGain = totalGain;
     let nonTaxApplied = false;
+    let isHighValueCase = false;
 
     if (isOneHouse) {
       if (sellPrice <= s.nonTaxThreshold) {
@@ -440,6 +573,7 @@
           breakdown.push(row('1세대1주택 비과세', '요건 미충족 (보유 2년↑' + (isAdjustedArea ? ' · 거주 2년↑' : '') + ' 필요) → 일반 과세 적용', '주의'));
         }
       } else {
+        isHighValueCase = true;
         const taxableRatio = (sellPrice - s.nonTaxThreshold) / sellPrice;
         taxableGain = totalGain * taxableRatio;
         breakdown.push(row('고가주택 과세대상 비율', (taxableRatio * 100).toFixed(2) + '%', '12억 초과분'));
@@ -452,27 +586,36 @@
       return;
     }
 
-    // 장기보유특별공제
-    let ltRate = 0;
+    // 장기보유특별공제 (연도별 스케줄 적용)
+    let ltDeduction = 0;
     let ltLabel = '';
     if (isOneHouse) {
       if (holdYears >= 3) {
-        const holdPart = Math.min(holdYears * s.oneHouseHoldRate, 0.40);
-        const residePart = Math.min(resideYears * s.oneHouseResideRate, 0.40);
-        ltRate = holdPart + residePart;
-        ltLabel = `1세대1주택 특례 (보유 ${(holdPart * 100).toFixed(1)}% + 거주 ${(residePart * 100).toFixed(1)}%)`;
+        const holdPart = Math.min(holdYears, 10) * cfg.holdRate;
+        const residePart = Math.min(resideYears, 10) * cfg.resideRate;
+        let ltRate = holdPart + residePart;
+        ltDeduction = taxableGain * ltRate;
+        let capNote = '';
+        if (isHighValueCase && cfg.deductionCap != null && ltDeduction > cfg.deductionCap) {
+          ltDeduction = cfg.deductionCap;
+          capNote = ` · 초고가주택 공제한도(${formatWon(cfg.deductionCap)}) 적용`;
+        }
+        ltLabel = `${saleYear}년 기준 1세대1주택 특례 (보유 ${(holdPart * 100).toFixed(1)}% + 거주 ${(residePart * 100).toFixed(1)}%)${capNote}`;
       }
     } else {
       if (holdYears >= 3) {
-        ltRate = Math.min(holdYears, 15) * s.generalLTRate;
-        ltLabel = `일반 장기보유특별공제 (연 ${(s.generalLTRate * 100).toFixed(1)}%)`;
+        const ltRate = Math.min(holdYears, 15) * s.generalLTRate;
+        ltDeduction = taxableGain * ltRate;
+        ltLabel = `일반(다주택) 장기보유특별공제 (연 ${(s.generalLTRate * 100).toFixed(1)}%)`;
       }
     }
-    const ltDeduction = taxableGain * ltRate;
     if (ltDeduction > 0) breakdown.push(row('장기보유특별공제', '-' + formatWon(ltDeduction), ltLabel));
 
-    const basicDeduction = Math.min(s.basicDeduction, Math.max(taxableGain - ltDeduction, 0));
-    breakdown.push(row('기본공제', '-' + formatWon(basicDeduction)));
+    // 기본공제 (실거주 10년 이상 1주택자 확대 적용)
+    const meetsExpandedBasic = isOneHouse && resideYears >= s.expandedResideYearsReq && sellPrice <= s.expandedMaxSellPrice;
+    const basicDeductionBase = meetsExpandedBasic ? s.expandedBasicDeduction : s.basicDeduction;
+    const basicDeduction = Math.min(basicDeductionBase, Math.max(taxableGain - ltDeduction, 0));
+    breakdown.push(row('기본공제', '-' + formatWon(basicDeduction), meetsExpandedBasic ? '실거주 10년↑ 확대공제' : ''));
 
     const taxBase = Math.max(taxableGain - ltDeduction - basicDeduction, 0);
     breakdown.push(row('과세표준', formatWon(taxBase)));
@@ -490,16 +633,29 @@
       const bracket = findBracket(taxBase, s.brackets);
       let rate = bracket.rate;
       let surchargeNote = '';
-      if (applySurcharge && isAdjustedArea && numHouses >= 2) {
-        const add = numHouses >= 3 ? s.surcharge3House : s.surcharge2House;
-        rate += add;
-        surchargeNote = ` + 다주택 중과 ${(add * 100).toFixed(0)}%p`;
+      if (!excludeSurcharge && isAdjustedArea && effectiveNumHouses >= 2) {
+        const add = effectiveNumHouses >= 3 ? cfg.surcharge3 : cfg.surcharge2;
+        if (add > 0) {
+          rate += add;
+          surchargeNote = ` + ${saleYear}년 다주택 중과 ${(add * 100).toFixed(0)}%p`;
+        }
       }
       calcTax = Math.max(taxBase * rate - bracket.deduction, 0);
       rateLabel = `누진세율 ${(rate * 100).toFixed(0)}%${surchargeNote} (누진공제 ${formatWon(bracket.deduction)})`;
     }
 
     breakdown.push(row('산출세액', formatWon(calcTax), rateLabel));
+
+    // 고령자 지방이주 감면
+    if (elderlyReliefChecked) {
+      if (cfg.elderlyReliefRate) {
+        const reliefAmount = Math.min(calcTax * cfg.elderlyReliefRate, cfg.elderlyReliefCap != null ? cfg.elderlyReliefCap : Infinity);
+        calcTax = Math.max(calcTax - reliefAmount, 0);
+        breakdown.push(row('고령자 지방이주 감면', '-' + formatWon(reliefAmount), `${saleYear}년 ${(cfg.elderlyReliefRate * 100).toFixed(0)}% 감면`));
+      } else {
+        breakdown.push(row('고령자 지방이주 감면', '해당 연도 미적용', `${saleYear}년`));
+      }
+    }
 
     const localTax = calcTax * s.localTaxRate;
     breakdown.push(row('지방소득세 (' + (s.localTaxRate * 100).toFixed(0) + '%)', formatWon(localTax)));
@@ -510,7 +666,7 @@
     $('totalTaxAmount').textContent = formatWon(totalTax);
     $('totalTaxAmount').classList.remove('zero');
     const effRate = totalGain > 0 ? (totalTax / totalGain * 100) : 0;
-    $('totalTaxSub').textContent = `양도차익 대비 실효세율 약 ${effRate.toFixed(1)}%`;
+    $('totalTaxSub').textContent = `양도차익 대비 실효세율 약 ${effRate.toFixed(1)}% · ${saleYear}년 매도 기준`;
     $('breakdownTable').innerHTML = breakdown.join('');
     $('noteBox').style.display = 'none';
 
