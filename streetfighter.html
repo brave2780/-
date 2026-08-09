@@ -240,6 +240,7 @@
   let lastTime = 0;
   let roundOver = false;
   let particles = [];
+  let damageNumbers = [];
   let shake = 0;
   let introTimer = 0;
   let clock = 0;
@@ -593,6 +594,7 @@
     timeLeft = ROUND_TIME;
     roundOver = false;
     particles = [];
+    damageNumbers = [];
     shake = 0;
     introTimer = 1100;
     document.getElementById('selectScreen').classList.add('hidden');
@@ -622,6 +624,14 @@
     if (!blocked) shake = 10;
   }
 
+  function spawnDamageNumber(x, y, amount, blocked) {
+    damageNumbers.push({
+      x, y, vy: -60, life: 850, maxLife: 850,
+      text: '-' + amount,
+      color: blocked ? '#9fd8ff' : '#ff5e5e'
+    });
+  }
+
   function tryAttack(attacker, defender, type) {
     if (attacker.cooldown > 0 || attacker.hitTimer > 0 || attacker.state === 'ko') return;
     const duration = type === 'punch' ? PUNCH_DURATION : KICK_DURATION;
@@ -635,15 +645,20 @@
     if (dist <= range && defender.state !== 'ko') {
       const hitX = (attacker.x + defender.x) / 2;
       const hitY = GROUND_Y - 90;
+      const numberX = defender.x;
+      const numberY = GROUND_Y - defender.y - 190;
+      const prevHp = defender.hp;
       if (defender.state === 'block') {
         defender.hp = Math.max(0, defender.hp - 1);
         spawnHitFx(hitX, hitY, true);
+        spawnDamageNumber(numberX, numberY, prevHp - defender.hp, true);
       } else {
         defender.hp = Math.max(0, defender.hp - damage);
         defender.state = 'hit';
         defender.hitTimer = HIT_STUN;
         defender.x += (defender.x > attacker.x ? 1 : -1) * 10;
         spawnHitFx(hitX, hitY, false);
+        spawnDamageNumber(numberX, numberY, prevHp - defender.hp, false);
       }
       if (defender.hp <= 0) {
         defender.state = 'ko';
@@ -821,6 +836,25 @@
     ctx.globalAlpha = 1;
   }
 
+  function drawDamageNumbers(dt) {
+    damageNumbers = damageNumbers.filter(d => d.life > 0);
+    for (const d of damageNumbers) {
+      d.life -= dt;
+      d.y += d.vy * (dt / 1000);
+      d.vy += 60 * (dt / 1000);
+      const alpha = Math.max(0, d.life / d.maxLife);
+      ctx.globalAlpha = alpha;
+      ctx.font = '900 24px "Arial Black", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.strokeText(d.text, d.x, d.y);
+      ctx.fillStyle = d.color;
+      ctx.fillText(d.text, d.x, d.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawHUD() {
     drawBar(24, 22, players.p1, false);
     drawBar(W - 264, 22, players.p2, true);
@@ -920,6 +954,7 @@
     renderFighter(ctx, { x: players.p1.x, y: GROUND_Y - players.p1.y, facing: players.p1.facing, char: players.p1.char, state: players.p1.state, animT: players.p1.animT, hp: players.p1.hp });
     renderFighter(ctx, { x: players.p2.x, y: GROUND_Y - players.p2.y, facing: players.p2.facing, char: players.p2.char, state: players.p2.state, animT: players.p2.animT, hp: players.p2.hp });
     drawParticles(dt);
+    drawDamageNumbers(dt);
     ctx.restore();
     drawHUD();
   }
