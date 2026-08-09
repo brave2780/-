@@ -221,14 +221,14 @@
       name: '류',
       outfit: '#f2f2f0', outfitHi: '#ffffff', outfitLo: '#c9c9c6',
       trim: '#8a2020', hair: '#161616', accent: '#e21f1f',
-      wrap: '#c81f2a', barefoot: true,
+      wrap: '#c81f2a', barefoot: true, belt: '#161616',
       build: 'gi', headwear: 'headband'
     },
     ken: {
       name: '캔',
       outfit: '#2a3a6e', outfitHi: '#4a5aa0', outfitLo: '#151f45',
       trim: '#dfe4f5', hair: '#e8c547', accent: '#8892c9',
-      wrap: 'glove', barefoot: true,
+      wrap: 'glove', barefoot: true, belt: '#6b6b6b',
       build: 'gi', headwear: 'swept'
     },
     chunli: {
@@ -356,17 +356,17 @@
 
     // back leg (drawn first = further away)
     const backThigh = seg(hip.x, hip.y, pose.backThigh[0], pose.backThigh[1]);
-    drawLimb(g, backThigh, 17, SKIN_HI, SKIN, SKIN_LO);
+    drawLimb(g, backThigh, 19, SKIN_HI, SKIN, SKIN_LO);
     const backShin = seg(backThigh.x2, backThigh.y2, pose.backShin[0], pose.backShin[1]);
     drawLimb(g, backShin, 14, c.outfitHi, c.outfit, c.outfitLo);
     drawFoot(g, backShin.x2, backShin.y2, c);
 
     // back arm
-    const backShoulder = { x: -14, y: hipY - 74 };
+    const backShoulder = { x: -15, y: hipY - 74 };
     const backUpper = seg(backShoulder.x, backShoulder.y, pose.backUpperArm[0], pose.backUpperArm[1]);
-    drawLimb(g, backUpper, 14, SKIN_HI, SKIN, SKIN_LO);
+    drawLimb(g, backUpper, 17, SKIN_HI, SKIN, SKIN_LO);
     const backFore = seg(backUpper.x2, backUpper.y2, pose.backForearm[0], pose.backForearm[1]);
-    drawLimb(g, backFore, 12, SKIN_HI, SKIN, SKIN_LO);
+    drawLimb(g, backFore, 11, SKIN_HI, SKIN, SKIN_LO);
     drawFist(g, backFore.x2, backFore.y2, false, c);
 
     // torso (tapered quad, gi/dress colored)
@@ -377,21 +377,21 @@
 
     // front leg
     const frontThigh = seg(hip.x, hip.y, pose.frontThigh[0], pose.frontThigh[1]);
-    drawLimb(g, frontThigh, 18, c.outfitHi, c.outfit, c.outfitLo);
+    drawLimb(g, frontThigh, 20, c.outfitHi, c.outfit, c.outfitLo);
     if (c.build === 'dress') {
       // qipao slit reveals leg skin on the thigh
-      drawLimb(g, frontThigh, 12, SKIN_HI, SKIN, SKIN_LO);
+      drawLimb(g, frontThigh, 13, SKIN_HI, SKIN, SKIN_LO);
     }
     const frontShin = seg(frontThigh.x2, frontThigh.y2, pose.frontShin[0], pose.frontShin[1]);
     drawLimb(g, frontShin, 15, SKIN_HI, SKIN, SKIN_LO);
     drawFoot(g, frontShin.x2, frontShin.y2, c);
 
     // front arm
-    const frontShoulder = { x: 14, y: hipY - 76 };
+    const frontShoulder = { x: 15, y: hipY - 76 };
     const frontUpper = seg(frontShoulder.x, frontShoulder.y, pose.frontUpperArm[0], pose.frontUpperArm[1]);
-    drawLimb(g, frontUpper, 15, SKIN_HI, SKIN, SKIN_LO);
+    drawLimb(g, frontUpper, 18, SKIN_HI, SKIN, SKIN_LO);
     const frontFore = seg(frontUpper.x2, frontUpper.y2, pose.frontForearm[0], pose.frontForearm[1]);
-    drawLimb(g, frontFore, 13, SKIN_HI, SKIN, SKIN_LO);
+    drawLimb(g, frontFore, 12, SKIN_HI, SKIN, SKIN_LO);
     drawFist(g, frontFore.x2, frontFore.y2, state === 'punch', c);
 
     // hit flash overlay
@@ -566,12 +566,12 @@
       g.lineTo(9, top + 3);
       g.stroke();
       // belt
-      g.fillStyle = '#1a1a1a';
+      g.fillStyle = c.belt;
       g.fillRect(-waistW - 2, waistY - 8, waistW * 2 + 4, 8);
       g.fillStyle = c.accent;
       g.fillRect(-4, waistY - 8, 8, 8);
       // belt knot tails
-      g.fillStyle = '#111111';
+      g.fillStyle = c.belt;
       g.beginPath(); g.moveTo(-3, waistY); g.lineTo(-7, waistY + 12); g.lineTo(-1, waistY + 6); g.closePath(); g.fill();
       g.beginPath(); g.moveTo(3, waistY); g.lineTo(7, waistY + 13); g.lineTo(1, waistY + 6); g.closePath(); g.fill();
 
@@ -583,6 +583,23 @@
       g.strokeStyle = 'rgba(255,255,255,0.14)';
       g.beginPath(); g.moveTo(-shoulderW + 10, top + 16); g.lineTo(-waistW + 8, waistY - 4); g.stroke();
     } else {
+      // puffed short sleeve caps at the shoulders
+      g.fillStyle = c.outfit;
+      g.beginPath(); g.arc(-shoulderW + 4, top + 12, 9, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(shoulderW - 4, top + 12, 9, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = c.trim;
+      g.lineWidth = 1.6;
+      g.beginPath(); g.arc(-shoulderW + 4, top + 12, 9, 0.2, Math.PI - 0.2); g.stroke();
+      g.beginPath(); g.arc(shoulderW - 4, top + 12, 9, 0.2, Math.PI - 0.2); g.stroke();
+
+      // white waist sash with a small bow at the front
+      g.fillStyle = '#f5f2ea';
+      g.fillRect(-waistW - 3, waistY - 9, waistW * 2 + 6, 10);
+      g.beginPath(); g.moveTo(-4, waistY - 4); g.lineTo(-10, waistY - 9); g.lineTo(-10, waistY + 1); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(4, waistY - 4); g.lineTo(10, waistY - 9); g.lineTo(10, waistY + 1); g.closePath(); g.fill();
+      g.fillStyle = c.trim;
+      g.beginPath(); g.arc(0, waistY - 4, 2.4, 0, Math.PI * 2); g.fill();
+
       // chun-li mandarin collar + frog buttons
       g.fillStyle = c.trim;
       g.fillRect(-6, top + 2, 12, 6);
@@ -668,10 +685,28 @@
       g.fillStyle = c.hair;
       g.beginPath(); g.moveTo(-16, cy + 4); g.quadraticCurveTo(-19, cy + 10, -15, cy + 14); g.quadraticCurveTo(-14, cy + 8, -12, cy + 5); g.closePath(); g.fill();
       g.beginPath(); g.moveTo(16, cy + 4); g.quadraticCurveTo(19, cy + 10, 15, cy + 14); g.quadraticCurveTo(14, cy + 8, 12, cy + 5); g.closePath(); g.fill();
+      // white bow sitting on top of the head, between the buns
+      g.fillStyle = '#f5f2ea';
+      g.beginPath(); g.ellipse(0, cy - 17, 6, 4.5, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(-2, cy - 17); g.lineTo(-9, cy - 21); g.lineTo(-9, cy - 13); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(2, cy - 17); g.lineTo(9, cy - 21); g.lineTo(9, cy - 13); g.closePath(); g.fill();
+      g.fillStyle = c.accent;
+      g.beginPath(); g.arc(0, cy - 17, 2, 0, Math.PI * 2); g.fill();
     } else if (c.headwear === 'headband') {
       g.beginPath(); g.arc(0, cy - 4, 15.5, Math.PI, 0); g.fill();
       g.fillStyle = c.accent;
       g.fillRect(-15, cy - 8, 30, 6);
+      // long flowing tails streaming off the back of the headband
+      g.beginPath();
+      g.moveTo(-15, cy - 6);
+      g.quadraticCurveTo(-26, cy - 10, -24, cy - 22);
+      g.quadraticCurveTo(-27, cy - 12, -19, cy - 8);
+      g.closePath(); g.fill();
+      g.beginPath();
+      g.moveTo(-15, cy - 1);
+      g.quadraticCurveTo(-30, cy + 2, -30, cy - 12);
+      g.quadraticCurveTo(-31, cy, -20, cy - 3);
+      g.closePath(); g.fill();
       g.beginPath(); g.moveTo(15, cy - 6); g.lineTo(24, cy - 2); g.lineTo(15, cy); g.closePath(); g.fill();
       g.beginPath(); g.moveTo(15, cy + 1); g.lineTo(25, cy + 6); g.lineTo(15, cy + 6); g.closePath(); g.fill();
     } else if (c.headwear === 'swept') {
