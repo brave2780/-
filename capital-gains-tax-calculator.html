@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 부동산 양도소득세 계산기 (아파트)</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #e1e6ee;
+    --text: #1c2430;
+    --sub: #667085;
+    --accent: #2b5fd9;
+    --accent-soft: #eaf0fe;
+    --good: #1a8a5f;
+    --warn: #b5460a;
+    --danger: #c0362c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+    padding: 24px 16px 60px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: var(--sub); font-size: 14px; margin: 0 0 16px; }
+  .banner {
+    background: #fff6ea;
+    border: 1px solid #f0c987;
+    color: #7a4d00;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .banner b { color: #5a3800; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 2px rgba(20,30,50,0.04);
+  }
+  .card h2 {
+    font-size: 15px;
+    margin: 0 0 14px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 16px;
+  }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .field .hint { font-size: 12px; color: var(--sub); min-height: 14px; }
+  input[type="number"], select, textarea {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fbfcfe;
+    color: var(--text);
+  }
+  input[type="number"]:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: #fff;
+  }
+  .checkrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .checkrow input { width: 16px; height: 16px; }
+  .checkrow .note { color: var(--sub); font-size: 12px; margin-left: auto; }
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 9px;
+  }
+  details summary {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary:before { content: "▸ "; }
+  details[open] summary:before { content: "▾ "; }
+  details { margin-top: 4px; }
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px 14px;
+    margin-top: 14px;
+  }
+  @media (max-width: 700px) { .settings-grid { grid-template-columns: 1fr 1fr; } }
+  .settings-grid .field label { font-size: 12px; font-weight: 500; color: var(--sub); }
+  textarea#bracketJson { width: 100%; min-height: 130px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12.5px; resize: vertical; }
+
+  .result-hero {
+    background: var(--accent-soft);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .result-hero .label { font-size: 13px; color: var(--sub); margin-bottom: 4px; }
+  .result-hero .amount { font-size: 30px; font-weight: 800; color: var(--accent); }
+  .result-hero .amount.zero { color: var(--good); }
+  .result-hero .sub { font-size: 12.5px; color: var(--sub); margin-top: 6px; }
+
+  table.breakdown { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.breakdown td { padding: 9px 6px; border-bottom: 1px solid var(--border); }
+  table.breakdown td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.breakdown tr.total td { border-top: 2px solid var(--accent); font-size: 15px; padding-top: 12px; }
+  table.breakdown tr.total td:last-child { color: var(--accent); }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    background: #eef1f6;
+    color: var(--sub);
+    margin-left: 6px;
+  }
+  .note-box {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--warn);
+    background: #fff3ea;
+    border: 1px solid #f3c9a3;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  footer {
+    font-size: 11.5px;
+    color: var(--sub);
+    text-align: center;
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏠 2026 부동산 양도소득세 계산기</h1>
+  <p class="lead">아파트 매매 시 예상 양도소득세를 모의 계산합니다.</p>
+
+  <div class="banner">
+    <b>⚠️ 안내</b> — 2026년 부동산 세제개편의 최종 확정 세율·공제 기준은 시점에 따라 달라질 수 있습니다.
+    이 계산기는 <b>2025년 기준 현행 양도소득세 법령 구조</b>를 기본값으로 탑재했으며, 하단 <b>"세율·공제 기준 설정"</b>에서
+    2026년 확정 개편안에 맞춰 숫자를 직접 수정할 수 있습니다. 실제 신고 전 반드시 세무사 상담 또는 국세청 홈택스에서 재확인하세요.
+  </div>
+
+  <div class="card">
+    <h2>① 매매 정보</h2>
+    <div class="grid">
+      <div class="field">
+        <label for="buyPrice">아파트 매입가 (원)</label>
+        <input type="number" id="buyPrice" min="0" step="1000000" placeholder="예: 700000000">
+        <div class="hint" id="buyPriceHint"></div>
+      </div>
+      <div class="field">
+        <label for="sellPrice">아파트 매도가 (원)</label>
+        <input type="number" id="sellPrice" min="0" step="1000000" placeholder="예: 1300000000">
+        <div class="hint" id="sellPriceHint"></div>
+      </div>
+      <div class="field">
+        <label for="expense">필요경비 (원, 취득세·중개수수료 등)</label>
+        <input type="number" id="expense" min="0" step="100000" value="0">
+        <div class="hint">기본값 0원. 아는 범위 내에서만 입력해도 됩니다.</div>
+      </div>
+      <div class="field"></div>
+      <div class="field">
+        <label for="holdYears">보유기간 (년)</label>
+        <input type="number" id="holdYears" min="0" step="0.5" placeholder="예: 6">
+        <div class="hint">취득일~양도일 기준 연 단위</div>
+      </div>
+      <div class="field">
+        <label for="resideYears">거주기간 (년)</label>
+        <input type="number" id="resideYears" min="0" step="0.5" placeholder="예: 4">
+        <div class="hint">1세대1주택 비과세·공제 판단에 사용</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 주택 보유 현황</h2>
+    <div class="grid">
+      <div class="checkrow">
+        <input type="checkbox" id="isOneHouse" checked>
+        <label for="isOneHouse">1세대 1주택자입니다</label>
+      </div>
+      <div class="checkrow">
+        <input type="checkbox" id="isAdjustedArea">
+        <label for="isAdjustedArea">조정대상지역 소재 주택</label>
+      </div>
+      <div class="field">
+        <label for="numHouses">보유 주택 수</label>
+        <select id="numHouses">
+          <option value="1">1주택</option>
+          <option value="2">2주택</option>
+          <option value="3">3주택 이상</option>
+        </select>
+      </div>
+      <div class="checkrow">
+        <input type="checkbox" id="applySurcharge">
+        <label for="applySurcharge">다주택자 중과세율 적용</label>
+        <span class="note">2026 개편 확정 시 확인</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn" id="calcBtn">양도소득세 계산하기</button>
+
+  <div class="card" id="resultCard" style="display:none;">
+    <h2>계산 결과</h2>
+    <div class="result-hero">
+      <div class="label">총 납부세액 (지방소득세 포함)</div>
+      <div class="amount" id="totalTaxAmount">0원</div>
+      <div class="sub" id="totalTaxSub"></div>
+    </div>
+    <table class="breakdown" id="breakdownTable"></table>
+    <div class="note-box" id="noteBox" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>세율·공제 기준 설정 (2026년 개편안 반영 시 수정)</summary>
+      <div class="settings-grid">
+        <div class="field">
+          <label for="basicDeduction">기본공제 (원/년)</label>
+          <input type="number" id="basicDeduction" value="2500000">
+        </div>
+        <div class="field">
+          <label for="nonTaxThreshold">1세대1주택 비과세 기준금액 (원)</label>
+          <input type="number" id="nonTaxThreshold" value="1200000000">
+        </div>
+        <div class="field">
+          <label for="shortTermUnder1">단기세율 - 보유 1년 미만 (%)</label>
+          <input type="number" id="shortTermUnder1" value="70">
+        </div>
+        <div class="field">
+          <label for="shortTerm1to2">단기세율 - 보유 1~2년 (%)</label>
+          <input type="number" id="shortTerm1to2" value="60">
+        </div>
+        <div class="field">
+          <label for="oneHouseHoldRate">1주택자 보유기간공제 (%/년, 최대40%)</label>
+          <input type="number" id="oneHouseHoldRate" value="4">
+        </div>
+        <div class="field">
+          <label for="oneHouseResideRate">1주택자 거주기간공제 (%/년, 최대40%)</label>
+          <input type="number" id="oneHouseResideRate" value="4">
+        </div>
+        <div class="field">
+          <label for="generalLTRate">일반 장기보유특별공제 (%/년, 최대30%)</label>
+          <input type="number" id="generalLTRate" value="2">
+        </div>
+        <div class="field">
+          <label for="surcharge2House">다주택 중과 가산율 - 2주택 (%p)</label>
+          <input type="number" id="surcharge2House" value="20">
+        </div>
+        <div class="field">
+          <label for="surcharge3House">다주택 중과 가산율 - 3주택이상 (%p)</label>
+          <input type="number" id="surcharge3House" value="30">
+        </div>
+        <div class="field">
+          <label for="localTaxRate">지방소득세율 (산출세액 대비, %)</label>
+          <input type="number" id="localTaxRate" value="10">
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label for="bracketJson">누진세율표 (JSON, 과세표준 구간별 세율·누진공제)</label>
+        <textarea id="bracketJson">[
+  { "limit": 14000000,      "rate": 0.06, "deduction": 0 },
+  { "limit": 50000000,      "rate": 0.15, "deduction": 1260000 },
+  { "limit": 88000000,      "rate": 0.24, "deduction": 5760000 },
+  { "limit": 150000000,     "rate": 0.35, "deduction": 15440000 },
+  { "limit": 300000000,     "rate": 0.38, "deduction": 19940000 },
+  { "limit": 500000000,     "rate": 0.40, "deduction": 25940000 },
+  { "limit": 1000000000,    "rate": 0.42, "deduction": 35940000 },
+  { "limit": null,          "rate": 0.45, "deduction": 65940000 }
+]</textarea>
+      </div>
+    </details>
+  </div>
+
+  <footer>
+    본 계산기는 참고용 모의계산 도구이며 실제 세액과 다를 수 있습니다. 최종 세액은 국세청 홈택스 또는 세무 전문가를 통해 확인하시기 바랍니다.
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  function formatWon(n) {
+    const sign = n < 0 ? '-' : '';
+    n = Math.round(Math.abs(n));
+    return sign + n.toLocaleString('ko-KR') + '원';
+  }
+
+  function formatKoreanUnit(n) {
+    n = Math.round(Math.abs(n));
+    const eok = Math.floor(n / 100000000);
+    const man = Math.floor((n % 100000000) / 10000);
+    let out = '';
+    if (eok > 0) out += eok + '억 ';
+    if (man > 0 || eok === 0) out += man.toLocaleString('ko-KR') + '만원';
+    else out += '원';
+    return out.trim();
+  }
+
+  function updatePriceHint(inputId, hintId) {
+    const val = Number($(inputId).value || 0);
+    $(hintId).textContent = val > 0 ? '≈ ' + formatKoreanUnit(val) : '';
+  }
+  $('buyPrice').addEventListener('input', () => updatePriceHint('buyPrice', 'buyPriceHint'));
+  $('sellPrice').addEventListener('input', () => updatePriceHint('sellPrice', 'sellPriceHint'));
+
+  function getSettings() {
+    let brackets;
+    try {
+      brackets = JSON.parse($('bracketJson').value);
+    } catch (e) {
+      alert('누진세율표 JSON 형식이 올바르지 않습니다. 기본값으로 계산합니다.');
+      brackets = [
+        { limit: 14000000, rate: 0.06, deduction: 0 },
+        { limit: 50000000, rate: 0.15, deduction: 1260000 },
+        { limit: 88000000, rate: 0.24, deduction: 5760000 },
+        { limit: 150000000, rate: 0.35, deduction: 15440000 },
+        { limit: 300000000, rate: 0.38, deduction: 19940000 },
+        { limit: 500000000, rate: 0.40, deduction: 25940000 },
+        { limit: 1000000000, rate: 0.42, deduction: 35940000 },
+        { limit: null, rate: 0.45, deduction: 65940000 }
+      ];
+    }
+    return {
+      basicDeduction: Number($('basicDeduction').value || 0),
+      nonTaxThreshold: Number($('nonTaxThreshold').value || 0),
+      shortTermUnder1: Number($('shortTermUnder1').value || 0) / 100,
+      shortTerm1to2: Number($('shortTerm1to2').value || 0) / 100,
+      oneHouseHoldRate: Number($('oneHouseHoldRate').value || 0) / 100,
+      oneHouseResideRate: Number($('oneHouseResideRate').value || 0) / 100,
+      generalLTRate: Number($('generalLTRate').value || 0) / 100,
+      surcharge2House: Number($('surcharge2House').value || 0) / 100,
+      surcharge3House: Number($('surcharge3House').value || 0) / 100,
+      localTaxRate: Number($('localTaxRate').value || 0) / 100,
+      brackets
+    };
+  }
+
+  function findBracket(base, brackets) {
+    for (const b of brackets) {
+      if (b.limit === null || base <= b.limit) return b;
+    }
+    return brackets[brackets.length - 1];
+  }
+
+  function row(label, value, tag) {
+    return `<tr><td>${label}${tag ? `<span class="tag">${tag}</span>` : ''}</td><td>${value}</td></tr>`;
+  }
+
+  function calculate() {
+    const buyPrice = Number($('buyPrice').value || 0);
+    const sellPrice = Number($('sellPrice').value || 0);
+    const expense = Number($('expense').value || 0);
+    const holdYears = Number($('holdYears').value || 0);
+    const resideYears = Number($('resideYears').value || 0);
+    let isOneHouse = $('isOneHouse').checked;
+    const isAdjustedArea = $('isAdjustedArea').checked;
+    const numHouses = Number($('numHouses').value || 1);
+    const applySurcharge = $('applySurcharge').checked;
+
+    if (!buyPrice || !sellPrice) {
+      alert('매입가와 매도가를 입력해 주세요.');
+      return;
+    }
+
+    const s = getSettings();
+    const resultCard = $('resultCard');
+    const breakdown = [];
+    resultCard.style.display = 'block';
+
+    const totalGain = sellPrice - buyPrice - expense;
+    breakdown.push(row('양도가액', formatWon(sellPrice)));
+    breakdown.push(row('취득가액', formatWon(buyPrice)));
+    if (expense) breakdown.push(row('필요경비', formatWon(expense)));
+    breakdown.push(row('양도차익', formatWon(totalGain)));
+
+    if (totalGain <= 0) {
+      renderZero('양도차손이 발생하여 납부할 양도소득세가 없습니다.', breakdown);
+      return;
+    }
+
+    let taxableGain = totalGain;
+    let nonTaxApplied = false;
+
+    if (isOneHouse) {
+      if (sellPrice <= s.nonTaxThreshold) {
+        const meetsResideReq = !isAdjustedArea || resideYears >= 2;
+        if (holdYears >= 2 && meetsResideReq) {
+          nonTaxApplied = true;
+        } else {
+          isOneHouse = false; // 요건 미충족 → 일반 과세로 전환
+          breakdown.push(row('1세대1주택 비과세', '요건 미충족 (보유 2년↑' + (isAdjustedArea ? ' · 거주 2년↑' : '') + ' 필요) → 일반 과세 적용', '주의'));
+        }
+      } else {
+        const taxableRatio = (sellPrice - s.nonTaxThreshold) / sellPrice;
+        taxableGain = totalGain * taxableRatio;
+        breakdown.push(row('고가주택 과세대상 비율', (taxableRatio * 100).toFixed(2) + '%', '12억 초과분'));
+        breakdown.push(row('과세대상 양도차익', formatWon(taxableGain)));
+      }
+    }
+
+    if (nonTaxApplied) {
+      renderZero('1세대1주택 비과세 요건을 충족하여 양도소득세가 발생하지 않습니다.', breakdown);
+      return;
+    }
+
+    // 장기보유특별공제
+    let ltRate = 0;
+    let ltLabel = '';
+    if (isOneHouse) {
+      if (holdYears >= 3) {
+        const holdPart = Math.min(holdYears * s.oneHouseHoldRate, 0.40);
+        const residePart = Math.min(resideYears * s.oneHouseResideRate, 0.40);
+        ltRate = holdPart + residePart;
+        ltLabel = `1세대1주택 특례 (보유 ${(holdPart * 100).toFixed(1)}% + 거주 ${(residePart * 100).toFixed(1)}%)`;
+      }
+    } else {
+      if (holdYears >= 3) {
+        ltRate = Math.min(holdYears, 15) * s.generalLTRate;
+        ltLabel = `일반 장기보유특별공제 (연 ${(s.generalLTRate * 100).toFixed(1)}%)`;
+      }
+    }
+    const ltDeduction = taxableGain * ltRate;
+    if (ltDeduction > 0) breakdown.push(row('장기보유특별공제', '-' + formatWon(ltDeduction), ltLabel));
+
+    const basicDeduction = Math.min(s.basicDeduction, Math.max(taxableGain - ltDeduction, 0));
+    breakdown.push(row('기본공제', '-' + formatWon(basicDeduction)));
+
+    const taxBase = Math.max(taxableGain - ltDeduction - basicDeduction, 0);
+    breakdown.push(row('과세표준', formatWon(taxBase)));
+
+    let calcTax = 0;
+    let rateLabel = '';
+
+    if (holdYears < 1) {
+      calcTax = taxBase * s.shortTermUnder1;
+      rateLabel = `단기세율 ${(s.shortTermUnder1 * 100).toFixed(0)}% (보유 1년 미만)`;
+    } else if (holdYears < 2) {
+      calcTax = taxBase * s.shortTerm1to2;
+      rateLabel = `단기세율 ${(s.shortTerm1to2 * 100).toFixed(0)}% (보유 1~2년)`;
+    } else {
+      const bracket = findBracket(taxBase, s.brackets);
+      let rate = bracket.rate;
+      let surchargeNote = '';
+      if (applySurcharge && isAdjustedArea && numHouses >= 2) {
+        const add = numHouses >= 3 ? s.surcharge3House : s.surcharge2House;
+        rate += add;
+        surchargeNote = ` + 다주택 중과 ${(add * 100).toFixed(0)}%p`;
+      }
+      calcTax = Math.max(taxBase * rate - bracket.deduction, 0);
+      rateLabel = `누진세율 ${(rate * 100).toFixed(0)}%${surchargeNote} (누진공제 ${formatWon(bracket.deduction)})`;
+    }
+
+    breakdown.push(row('산출세액', formatWon(calcTax), rateLabel));
+
+    const localTax = calcTax * s.localTaxRate;
+    breakdown.push(row('지방소득세 (' + (s.localTaxRate * 100).toFixed(0) + '%)', formatWon(localTax)));
+
+    const totalTax = calcTax + localTax;
+    breakdown.push(`<tr class="total"><td>총 납부세액</td><td>${formatWon(totalTax)}</td></tr>`);
+
+    $('totalTaxAmount').textContent = formatWon(totalTax);
+    $('totalTaxAmount').classList.remove('zero');
+    const effRate = totalGain > 0 ? (totalTax / totalGain * 100) : 0;
+    $('totalTaxSub').textContent = `양도차익 대비 실효세율 약 ${effRate.toFixed(1)}%`;
+    $('breakdownTable').innerHTML = breakdown.join('');
+    $('noteBox').style.display = 'none';
+
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function renderZero(message, breakdown) {
+    $('totalTaxAmount').textContent = '0원';
+    $('totalTaxAmount').classList.add('zero');
+    $('totalTaxSub').textContent = '';
+    breakdown.push(`<tr class="total"><td>총 납부세액</td><td>0원</td></tr>`);
+    $('breakdownTable').innerHTML = breakdown.join('');
+    const noteBox = $('noteBox');
+    noteBox.style.display = 'block';
+    noteBox.textContent = message;
+    $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  $('calcBtn').addEventListener('click', calculate);
+})();
+</script>
+</body>
+</html>
