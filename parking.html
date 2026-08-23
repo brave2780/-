@@ -217,10 +217,11 @@
       <div class="controls-list">
         <b>↑</b> 전진<br>
         <b>↓</b> 후진<br>
-        <b>← →</b> 조향(회전)<br>
+        <b>← →</b> 제자리 회전<br>
         <b>P</b> 일시정지<br>
         <b>R</b> 이 판 다시하기
       </div>
+      <div class="vehicle-name">회전은 속도와 무관해요 - 멈춘 채로도 방향을 맞출 수 있어요. 벽/차에 닿으면 그 자리에서 멈출 뿐, 실패하지 않아요.</div>
       <button class="action secondary" id="pauseBtn">일시정지</button>
     </div>
   </div>
@@ -245,13 +246,14 @@
   const levelSelect = document.getElementById('levelSelect');
 
   // ---------- Vehicle definitions: easiest -> hardest ----------
-  // length/width in px, wheelbase governs turning radius (bigger = clumsier turn).
+  // Every vehicle steers by turning in place (rate independent of speed) so
+  // aiming never depends on momentum - only size/speed/time scale the difficulty.
   const VEHICLES = [
-    { key: 'car',   label: '승용차',   length: 38, width: 18, wheelbase: 26, maxSpeed: 210, maxReverse: 130, accel: 230, brake: 320, friction: 110, maxSteer: 0.62, steerSpeed: 3.2, color: '#5dd6ff', cab: '#bff2ff', time: 60 },
-    { key: 'suv',   label: 'SUV',      length: 46, width: 21, wheelbase: 31, maxSpeed: 195, maxReverse: 115, accel: 200, brake: 300, friction: 100, maxSteer: 0.56, steerSpeed: 2.8, color: '#7dffb0', cab: '#d4ffe6', time: 55 },
-    { key: 'truck', label: '트럭',     length: 62, width: 25, wheelbase: 40, maxSpeed: 165, maxReverse: 95,  accel: 170, brake: 260, friction: 90,  maxSteer: 0.50, steerSpeed: 2.3, color: '#ffcf5d', cab: '#3a3f45', time: 48 },
-    { key: 'bus',   label: '버스',     length: 82, width: 27, wheelbase: 56, maxSpeed: 140, maxReverse: 80,  accel: 140, brake: 220, friction: 78,  maxSteer: 0.42, steerSpeed: 1.9, color: '#ff9d5d', cab: '#fff3e6', time: 42 },
-    { key: 'tank',  label: '탱크',     length: 66, width: 33, wheelbase: 0,  maxSpeed: 120, maxReverse: 90,  accel: 190, brake: 280, friction: 95,  isTank: true, pivotRate: 1.7, color: '#8a8f5d', cab: '#5c603a', time: 38 },
+    { key: 'car',   label: '승용차',   length: 38, width: 18, turnRate: 2.8,  maxSpeed: 200, maxReverse: 130, accel: 240, brake: 340, friction: 170, color: '#5dd6ff', cab: '#bff2ff', time: 70 },
+    { key: 'suv',   label: 'SUV',      length: 46, width: 21, turnRate: 2.45, maxSpeed: 185, maxReverse: 115, accel: 210, brake: 320, friction: 160, color: '#7dffb0', cab: '#d4ffe6', time: 65 },
+    { key: 'truck', label: '트럭',     length: 62, width: 25, turnRate: 2.1,  maxSpeed: 160, maxReverse: 95,  accel: 180, brake: 280, friction: 150, color: '#ffcf5d', cab: '#3a3f45', time: 58 },
+    { key: 'bus',   label: '버스',     length: 82, width: 27, turnRate: 1.75, maxSpeed: 135, maxReverse: 80,  accel: 150, brake: 240, friction: 140, color: '#ff9d5d', cab: '#fff3e6', time: 52 },
+    { key: 'tank',  label: '탱크',     length: 66, width: 33, turnRate: 1.5,  maxSpeed: 115, maxReverse: 90,  accel: 200, brake: 300, friction: 150, color: '#8a8f5d', cab: '#5c603a', time: 48 },
   ];
   const LEVEL_COUNT = VEHICLES.length;
 
@@ -369,15 +371,16 @@
   let veh = null;        // live vehicle state
   let timeLeft = 0;
   let score = 0;
-  let state = 'ready';   // ready | playing | crashed | timeout | success | paused
+  let state = 'ready';   // ready | playing | timeout | success | paused
   let parkTimer = 0;
   let lastTime = 0;
+  let bumpFlash = 0;
   const keys = { up: false, down: false, left: false, right: false };
 
   function newVehicleState() {
     return {
       x: level.startX, y: level.startY, angle: level.startAngle,
-      speed: 0, steerAngle: 0,
+      speed: 0,
     };
   }
 
@@ -387,6 +390,7 @@
     veh = newVehicleState();
     timeLeft = level.timeLimit;
     parkTimer = 0;
+    bumpFlash = 0;
     state = 'ready';
     levelLabelEl.textContent = n;
     vehicleLabelEl.textContent = level.cfg.label;
@@ -428,13 +432,6 @@
 
   function retryLevel() {
     loadLevel(curLevel);
-  }
-
-  function onCrash() {
-    state = 'crashed';
-    showOverlay('충돌!', '다른 차량이나 벽에 부딪혔습니다.', [
-      { text: '다시 시도', onClick: retryLevel },
-    ], 'bad');
   }
 
   function onTimeout() {
@@ -483,46 +480,27 @@
     }
     veh.speed = clamp(veh.speed, -cfg.maxReverse, cfg.maxSpeed);
 
-    if (cfg.isTank) {
-      let turnInput = 0;
-      if (keys.left) turnInput = -1;
-      else if (keys.right) turnInput = 1;
-      veh.angle += turnInput * cfg.pivotRate * dt;
-    } else {
-      let steerInput = 0;
-      if (keys.left) steerInput = -1;
-      else if (keys.right) steerInput = 1;
-      if (steerInput !== 0) {
-        veh.steerAngle += steerInput * cfg.steerSpeed * dt;
-      } else if (veh.steerAngle > 0) {
-        veh.steerAngle = Math.max(0, veh.steerAngle - cfg.steerSpeed * 1.5 * dt);
-      } else if (veh.steerAngle < 0) {
-        veh.steerAngle = Math.min(0, veh.steerAngle + cfg.steerSpeed * 1.5 * dt);
-      }
-      veh.steerAngle = clamp(veh.steerAngle, -cfg.maxSteer, cfg.maxSteer);
-      const omega = (veh.speed / cfg.wheelbase) * Math.tan(veh.steerAngle);
-      veh.angle += omega * dt;
-    }
-    veh.angle = normAngle(veh.angle);
+    // Turning is a fixed in-place rotation rate, independent of speed - you can
+    // always aim precisely, even stopped. Only size/speed/time set the difficulty.
+    let turnInput = 0;
+    if (keys.left) turnInput = -1;
+    else if (keys.right) turnInput = 1;
+    veh.angle = normAngle(veh.angle + turnInput * cfg.turnRate * dt);
+
+    const prevX = veh.x, prevY = veh.y, prevAngle = veh.angle;
     veh.x += Math.cos(veh.angle) * veh.speed * dt;
     veh.y += Math.sin(veh.angle) * veh.speed * dt;
 
-    const corners = rectCorners(veh.x, veh.y, veh.angle, cfg.length, cfg.width);
+    let corners = rectCorners(veh.x, veh.y, veh.angle, cfg.length, cfg.width);
 
-    // wall collision (canvas boundary)
-    for (const [x, y] of corners) {
-      if (x < 8 || x > W - 8 || y < 8 || y > H - 8) {
-        onCrash();
-        return;
-      }
-    }
-    // obstacle collision
-    for (const ob of level.obstacles) {
-      const obCorners = rectCorners(ob.x, ob.y, ob.angle, ob.length, ob.width);
-      if (polygonsOverlap(corners, obCorners)) {
-        onCrash();
-        return;
-      }
+    // Bumping a wall or another vehicle just blocks you (like a real curb) -
+    // it doesn't end the run, so mistakes cost a moment, not the whole attempt.
+    const hitWall = corners.some(([x, y]) => x < 8 || x > W - 8 || y < 8 || y > H - 8);
+    const hitObstacle = level.obstacles.some(ob => polygonsOverlap(corners, rectCorners(ob.x, ob.y, ob.angle, ob.length, ob.width)));
+    if (hitWall || hitObstacle) {
+      veh.x = prevX; veh.y = prevY; veh.angle = prevAngle; veh.speed = 0;
+      corners = rectCorners(veh.x, veh.y, veh.angle, cfg.length, cfg.width);
+      bumpFlash = 0.2;
     }
 
     // parking success check: fully inside spot, roughly aligned, nearly stopped
@@ -530,16 +508,18 @@
       Math.abs(normAngle(veh.angle - level.spot.angle)),
       Math.abs(normAngle(veh.angle - level.spot.angle - Math.PI))
     );
-    const parked = insideSpot(corners, level.spot, 2) && angleDiff < 0.26 && Math.abs(veh.speed) < 10;
+    const parked = insideSpot(corners, level.spot, -4) && angleDiff < 0.35 && Math.abs(veh.speed) < 14;
     if (parked) {
       parkTimer += dt;
-      if (parkTimer > 0.5) {
+      if (parkTimer > 0.4) {
         onSuccess();
         return;
       }
     } else {
       parkTimer = 0;
     }
+
+    if (bumpFlash > 0) bumpFlash = Math.max(0, bumpFlash - dt);
 
     timeLeft -= dt;
     if (timeLeft <= 0) {
@@ -662,8 +642,8 @@
     for (let x = 40; x < W; x += 80) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
     }
-    // boundary wall
-    ctx.strokeStyle = '#ffcc33';
+    // boundary wall (flashes red on a bump)
+    ctx.strokeStyle = bumpFlash > 0 ? '#ff5d5d' : '#ffcc33';
     ctx.lineWidth = 3;
     ctx.strokeRect(8, 8, W - 16, H - 16);
 
@@ -671,6 +651,11 @@
       drawSpot(level.spot);
       for (const ob of level.obstacles) drawObstacle(ob);
       drawVehicle();
+    }
+
+    if (bumpFlash > 0) {
+      ctx.fillStyle = `rgba(255, 93, 93, ${(bumpFlash / 0.2) * 0.12})`;
+      ctx.fillRect(0, 0, W, H);
     }
   }
 
