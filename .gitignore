@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+
+# runtime data
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
+
+.env
+.DS_Store
